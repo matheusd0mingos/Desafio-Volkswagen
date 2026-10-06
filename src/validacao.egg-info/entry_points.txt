@@ -1,0 +1,3 @@
+[console_scripts]
+validacao = validacao.__main__:main
+validacao-painel = validacao.adaptadores.web.__main__:main

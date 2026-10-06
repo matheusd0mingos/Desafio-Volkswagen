@@ -1,0 +1,28 @@
+services:
+  tratar:
+    build: { context: ., target: runtime }
+    image: validacao:latest
+    user: "${UID:-1000}:${GID:-1000}"     # arquivo de saída com o seu usuário
+    volumes:
+      - ./dados/entrada:/dados/entrada:ro  # Excel bruto: somente leitura
+      - ./dados/saida:/dados/saida
+
+  testes:
+    build: { context: ., target: teste }
+    image: validacao:teste
+    environment:
+      CASE_XLSX: /app/dados/entrada/Case_Dados_Validacao_.xlsx
+    volumes:
+      # pasta (não arquivo): se o Excel não estiver lá, o teste de integração é pulado
+      - ./dados/entrada:/app/dados/entrada:ro
+
+  painel:
+    build: { context: ., target: painel }
+    image: validacao:painel
+    user: "${UID:-1000}:${GID:-1000}"
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./dados/entrada:/dados/entrada:ro   # Excel: só para a carga inicial
+      - ./dados/base:/dados/base            # base única (SQLite): sobrevive a reinícios
+    restart: unless-stopped

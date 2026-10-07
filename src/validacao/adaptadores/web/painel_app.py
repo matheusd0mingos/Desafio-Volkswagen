@@ -165,7 +165,7 @@ def por_que_vaga():
         x, y = st.columns(2)
         with x:
             prova("Digital tools and dashboards", "Dominica", "built end to end, solo",
-                  ".NET and React platform for schedules, measurements and contracts. Power BI as an intern.")
+                  ".NET and React platform for schedules, measurements and contracts.")
         with y:
             prova("AI and analytics", "ML + tests", "models, then validation",
                   "Churn and lead-scoring models at Árvore. Today I use AI daily and validate it with tests, "

@@ -13,7 +13,7 @@ import streamlit as st
 from validacao.adaptadores.sqlite.repositorio import conectar, schema_sql
 from validacao.adaptadores.sqlite.base_operacional import SqliteBase
 from validacao.adaptadores.sqlite.bootstrap import garantir_base
-from validacao.adaptadores.web import banco_ui, gate_ui, plataforma
+from validacao.adaptadores.web import banco_ui, gate_ui, plataforma, tratamento_ui
 from validacao.adaptadores.web.dados import tratar
 from validacao.dominio.modelos import Config, LeituraKm, Origem
 from validacao.dominio.normalizadores import DataNormalizador, VeiculoIDNormalizador
@@ -21,7 +21,7 @@ from validacao.dominio.regras import REGRAS_LEITURA_PADRAO
 
 st.set_page_config(page_title="Case Validation & AI", page_icon="🚚", layout="wide")
 
-PAGINAS = ["👤 About me", "👤 Why this role", "Início", "1.1 Diagnóstico", "1.2 Modelo de dados", "1.3 Padrões e regras", "1.4 Tratamento",
+PAGINAS = ["👤 About me", "👤 Why this role", "Início", "1.1 Diagnóstico", "1.2 Modelo de dados", "1.3 Padrões e regras", "1.4 Tratamento", "1.4 Carga na base",
            "2.1 Fluxo do Gate", "2.1 Impacto no Gate Review", "▶ Lançar dados", "▶ Minhas pendências", "▶ Gate ao vivo", "▶ Pacote do Gate", "▶ Base de dados", "2.2 Plano de 90 dias", "2.3 Indicadores", "2.4 Adesão",
            "2.5 Inteligência artificial", "Premissas e riscos"]
 LARGO = "stretch"
@@ -33,8 +33,27 @@ def br(n: float) -> str:
 
 # ───────────────────────── barra lateral ─────────────────────────
 st.sidebar.title("🚚 Case Validation & AI")
-st.session_state.setdefault("pagina", PAGINAS[0])
-st.sidebar.radio("Roteiro", PAGINAS, key="pagina", label_visibility="collapsed")
+ROTEIROS = {
+    "Case · 10 min": ["Início", "1.1 Diagnóstico", "1.2 Modelo de dados", "1.4 Tratamento", "2.1 Impacto no Gate Review",
+                      "▶ Lançar dados", "▶ Pacote do Gate", "2.2 Plano de 90 dias", "2.3 Indicadores", "2.4 Adesão",
+                      "Premissas e riscos"],
+    "Case · 5 min": ["Início", "1.1 Diagnóstico", "1.2 Modelo de dados", "2.1 Impacto no Gate Review",
+                     "▶ Lançar dados", "2.2 Plano de 90 dias", "Premissas e riscos"],
+    "Apresentação pessoal": ["👤 About me", "👤 Why this role"],
+    "Tudo (arguição)": PAGINAS,
+}
+roteiro = st.sidebar.selectbox("🎬 Roteiro", list(ROTEIROS), index=3, key="roteiro")
+VISIVEIS = list(ROTEIROS[roteiro])
+st.session_state.setdefault("pagina", VISIVEIS[0])
+if st.session_state.get("_roteiro_anterior") != roteiro:            # trocou de roteiro: vai para o início dele
+    st.session_state["_roteiro_anterior"] = roteiro
+    if st.session_state["pagina"] not in VISIVEIS:
+        st.session_state["pagina"] = VISIVEIS[0]
+OPCOES = VISIVEIS + ([st.session_state["pagina"]] if st.session_state["pagina"] not in VISIVEIS else [])
+st.sidebar.radio("Páginas", OPCOES, key="pagina", label_visibility="collapsed")
+if roteiro != "Tudo (arguição)":
+    pos = VISIVEIS.index(st.session_state["pagina"]) + 1 if st.session_state["pagina"] in VISIVEIS else 0
+    st.sidebar.progress(pos / len(VISIVEIS), text=f"{pos} de {len(VISIVEIS)}")
 
 NOTAS_ON = st.sidebar.toggle("🗣️ Notas do apresentador", help="Desligue antes de compartilhar a tela, ou abra numa 2ª janela só para você.")
 with st.sidebar.expander("⚙️ Premissas (mude ao vivo)"):
@@ -63,8 +82,9 @@ pct = D["com_problema"] / D["total_linhas"]
 
 
 def navegar(delta: int) -> None:
-    i = PAGINAS.index(st.session_state["pagina"])
-    st.session_state["pagina"] = PAGINAS[max(0, min(len(PAGINAS) - 1, i + delta))]
+    seq = VISIVEIS if st.session_state["pagina"] in VISIVEIS else PAGINAS
+    i = seq.index(st.session_state["pagina"])
+    st.session_state["pagina"] = seq[max(0, min(len(seq) - 1, i + delta))]
 
 
 def rodape() -> None:
@@ -336,7 +356,7 @@ def demo_banco():
 
 
 def tratamento():
-    st.header("1.4 Tratamento: limpar o histórico sem apagar nada")
+    st.header("1.4 Carga na base: antes e depois, e as duas camadas de defesa")
     cols = st.columns(4)
     for c, (n, t, x) in zip(cols, [("1", "Cópia bruta", "Original intocado, sempre rastreável"),
                                    ("2", "Padronização", "ID, data, status e nome corrigidos automaticamente"),
@@ -572,42 +592,28 @@ NOTAS = {
                         "Automation: scripts that replaced manual spreadsheet work. Tools: Dominica. AI and analytics: "
                         "ML models as an intern, and today AI every day, always validated with tests. I have been the "
                         "engineer receiving messy data; I want to be the one who fixes it.",
-    "Início": "≈ 40 s. Abra com: em vez de slides, vou apresentar em cima da própria solução. A pergunta é simples e "
-              "tem quatro respostas: 9, 11, 16 ou 12. E o km da frota varia 15 vezes conforme quem soma.",
-    "1.1 Diagnóstico": "≈ 1 min. Quase tudo é processo: texto livre, nenhuma validação, status digitado. Se eu só "
-                       "limpar, o erro volta. Mostre uma categoria no detalhamento (ex.: Km inconsistente). Bônus: a "
-                       "falha CAN no PT-09 e no PT-07, programas diferentes.",
-    "1.2 Modelo de dados": "≈ 1 min. Chave = chassi, porque é físico. PT-NN vira código escolhido em lista. Programa "
-                           "fica só no veículo. Ocorrência ligada ao teste. Abra o DDL só se perguntarem.",
+    "Início": '0:45 · ATO 1, O PROBLEMA. "Vou apresentar em cima da própria solução: todo número aqui é calculado agora, do Excel que recebi. Começo com uma pergunta simples: quantas falhas estão abertas? A planilha dá quatro respostas: 9, 11, 16 ou 12. E o km da frota varia 15 vezes conforme quem soma." → "Por que isso acontece?"',
+    "1.1 Diagnóstico": '1:00 · "Encontrei 80 problemas em 52% das linhas. O ponto principal: quase todos vêm do processo, não de quem digita. Texto livre, nenhuma validação, status digitado à mão. Se eu só limpar, o erro volta na semana seguinte." Abra \'Km inconsistente\'. Bônus em 1 frase: a falha CAN aparece em dois programas. → "Então a solução precisa começar pelo modelo."',
+    "1.2 Modelo de dados": '0:50 · "Um veículo no centro, quatro fatos ao redor. A chave é o chassi, porque é físico e não muda; o PT-NN vira código escolhido em lista. Cada regra virou restrição no banco." → "E o histórico que já existe?"',
     "1.3 Padrões e regras": "≈ 40 s. Cada regra corresponde a um erro real. Duas camadas: o banco barra o que é de "
                             "uma linha; o domínio barra o que compara linhas. Guarde a demo do banco para a arguição.",
-    "1.4 Tratamento": "≈ 1 min. Padronização segura é automática; o que muda o sentido vai ao dono. Eu não sei se o "
-                      "PT-04 rodou 20.890; a Patrícia sabe. O Excel entra uma vez; o que foi barrado vira pendência.",
+    "1.4 Tratamento": '1:20 · "Esta é a parte que mais importa. Três regras: padronizo sozinho o que é seguro, pergunto ao dono o que muda o sentido, e nunca apago." Mostre a faixa dos 7 passos e abra a aba ④ com o PT-07: "comparo cada leitura com a última BOA; senão um erro contaminaria o resto". Feche na aba ⑥: "16 viram 12, e cada uma que saiu tem motivo." → "Agora a segunda pergunta do gestor: o que muda no Gate?"',
     "2.1 Fluxo do Gate": "≈ 40 s. O maior desperdício é a reunião discutindo número. O fluxo desejado é esta "
                          "plataforma: para ir a produção muda só onde roda, o banco e o login. Clique em 'Ver o fluxo funcionando'.",
-    "2.1 Impacto no Gate Review": "≈ 1 min. Esta é a segunda pergunta do gestor. Hoje o Gate é preparado juntando "
-                                  "planilhas; com a base única, a preparação deixa de ser consolidação e vira "
-                                  "verificação: o programa só vai ao Gate se cumprir o critério de prontidão. "
-                                  "A reunião deixa de discutir número e passa a discutir risco.",
-    "▶ Pacote do Gate": "≈ 40 s. Escolha o programa Alfa: o pacote mostra se ele está pronto, o que impede, e "
-                        "baixa o material da reunião em um clique. É o que hoje leva três dias.",
+    "2.1 Impacto no Gate Review": '1:00 · ATO 2, A MUDANÇA. "Hoje preparar o Gate é consolidar planilhas: duas pessoas, três dias. Com a base única, vira verificar a prontidão. O programa só vai ao Gate com o dado pronto, e a reunião discute risco, não número." → "Deixa eu mostrar funcionando."',
+    "▶ Pacote do Gate": '0:40 · Programa Alfa: "A plataforma diz se ele está pronto e o que impede, com o nome de quem resolve. O material da reunião sai em um clique. É o que hoje leva três dias." → "Como eu chego nisso em 90 dias, sozinho?"',
     "▶ Base de dados": "Na arguição. Mostre o diagrama lido do próprio banco (o veículo no centro), a tabela que "
                        "veio do Excel × o que entrou pela plataforma, e rode um SELECT ao vivo. Se pedirem, tente um "
                        "DELETE: a conexão só leitura recusa.",
-    "▶ Lançar dados": "Demo ≈ 60 s. Como Ana Lima: PT-01, 13.000 km → barrado (regrediu). Corrija para 14.300 → "
-                      "entra. Vá ao Gate ao vivo.",
+    "▶ Lançar dados": '1:00 · DEMO. Como Ana Lima, aba Quilometragem: PT-01, 13.000 km → barrado (\'km regrediu\'). Corrija para 14.300 → entra. "O dado nasce validado, na origem." → "E o efeito no Gate é imediato."',
     "▶ Minhas pendências": "Na arguição. Como Patrícia Rocha: aceitar a sugestão do PT-04 com um clique.",
     "▶ Gate ao vivo": "≈ 20 s. O km do Alfa mudou. Este é o Gate em horas, não dias. Reinicie a base ANTES da entrevista.",
-    "2.2 Plano de 90 dias": "≈ 1 min. Confiança no dado antes do painel. Um programa por vez porque sou um só. "
-                            "O que fica de fora depende da base confiável.",
-    "2.3 Indicadores": "≈ 1 min. Eficiência, confiança e saúde do dado. O segundo é o que o gestor sente: ninguém "
-                       "contesta número no Gate.",
-    "2.4 Adesão": "≈ 40 s. O engenheiro tem controle próprio porque é a única fonte em que confia. Não peço para "
-                  "largar: faço a base ser mais confiável que a planilha dele.",
+    "2.2 Plano de 90 dias": '1:00 · ATO 3, O PLANO. "Três critérios: qualidade antes de painel, entrega desde o primeiro mês, e um programa piloto antes de escalar, porque sou uma pessoa só." Cite o que fica de fora em 1 frase. → "E como saber se funcionou?"',
+    "2.3 Indicadores": '0:50 · "Três números: tempo de preparo, de 3 dias para 4 horas; números contestados no Gate, de quatro versões para uma; e qualidade na entrada. O segundo é o que o gestor sente." → "Nada disso funciona sem os engenheiros."',
+    "2.4 Adesão": '0:40 · "O engenheiro mantém controle próprio porque hoje é a única fonte em que confia. Não peço para largar: faço a base ser mais confiável que a planilha dele. Cada um recebe a própria lista, não um ranking." → "Para fechar, o que assumi."',
     "2.5 Inteligência artificial": "≈ 30 s. IA sugere, regra decide. Conte como usou IA e como validou: linha de "
                                    "origem em cada achado e testes automatizados.",
-    "Premissas e riscos": "≈ 30 s. A premissa que eu mais validaria: PT-13/14/15. E pergunte se há hospedagem "
-                          "Python corporativa. Mude o slider de km ao vivo se sobrar tempo.",
+    "Premissas e riscos": '0:45 · FECHO. "As premissas que eu mais validaria: os veículos PT-13, 14 e 15, e se existe hospedagem Python na empresa; se não existir, o plano B usa Power Apps e Power BI com as mesmas regras." IA em 1 frase: "IA sugere, regra decide." Termine com: "Um número só no Gate Review." e pare.',
 }
 
 
@@ -618,7 +624,7 @@ def reiniciar():
 
 
 {"👤 About me": sobre_mim, "👤 Why this role": por_que_vaga, "Início": inicio, "1.1 Diagnóstico": diagnostico, "1.2 Modelo de dados": modelo,
- "1.3 Padrões e regras": padroes, "1.4 Tratamento": tratamento, "2.1 Fluxo do Gate": fluxo,
+ "1.3 Padrões e regras": padroes, "1.4 Tratamento": lambda: tratamento_ui.pagina(D, res, CFG), "1.4 Carga na base": tratamento, "2.1 Fluxo do Gate": fluxo,
  "▶ Lançar dados": lambda: plataforma.lancar(BASE, CFG),
  "▶ Minhas pendências": lambda: plataforma.pendencias(BASE, CFG),
  "2.1 Impacto no Gate Review": lambda: gate_ui.impacto(

@@ -175,8 +175,7 @@ def por_que_vaga():
         if mapa.is_file():
             st.image(str(mapa), caption="Army sites in the Eastern Amazon (Pará, Amapá, Maranhão): "
                                         "scope of the free-market migration", width="stretch")
-    st.info("**I have been the engineer on the receiving end of messy spreadsheets. "
-            "I want to be the one who turns validation data into faster engineering decisions.**")
+
 
 
 # ───────────────────────── páginas ─────────────────────────

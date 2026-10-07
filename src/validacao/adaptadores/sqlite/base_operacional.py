@@ -147,6 +147,24 @@ class SqliteBase:
         if n == 0:
             raise RecusadoPeloBanco(f"Teste {teste_id} não encontrado.")
 
+    def proximo_id_teste(self):
+        r = self._um("""SELECT MAX(CAST(substr(teste_id, 3) AS INTEGER)) FROM teste
+                        WHERE teste_id GLOB 'T-[0-9][0-9][0-9]'""")
+        return f"T-{(r[0] or 0) + 1:03d}"
+
+    def testes_em_aberto(self, codigo):
+        con = self._con()
+        try:
+            return con.execute("""SELECT t.teste_id, t.tipo FROM teste t JOIN veiculo v USING (chassi)
+                                  WHERE v.codigo = ? AND t.realizada IS NULL""", (codigo,)).fetchall()
+        finally:
+            con.close()
+
+    def inserir_teste(self, teste_id, codigo, tipo, prevista, engenheiro):
+        self._inserir("teste", {"teste_id": teste_id, "chassi": self._chassi(codigo), "tipo": tipo,
+                                "prevista": prevista.isoformat(), "realizada": None, "iniciado": 0,
+                                "engenheiro": engenheiro})
+
     def resolver_pendencia(self, pendencia_id):
         self._executar("UPDATE pendencia SET resolvida = 1 WHERE id = ?", (pendencia_id,))
 
@@ -171,6 +189,46 @@ class SqliteBase:
             raise _traduzir(e) from e
         finally:
             con.close()
+
+    # ───────── introspecção (tela "Base de dados") ─────────
+    def _con_leitura(self) -> sqlite3.Connection:
+        con = sqlite3.connect(f"file:{self._caminho}?mode=ro", uri=True)    # só leitura, garantido pelo SQLite
+        con.execute("PRAGMA query_only = ON")
+        return con
+
+    def estrutura(self) -> list[dict]:
+        """Tabelas e views com colunas, chaves e contagem de linhas, lidas do próprio banco."""
+        con = self._con_leitura()
+        try:
+            objs = con.execute("""SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view')
+                                  AND name NOT LIKE 'sqlite_%' ORDER BY type, name""").fetchall()
+            out = []
+            for nome, tipo in objs:
+                cols = [{"nome": c[1], "tipo": c[2], "obrigatorio": bool(c[3]), "pk": bool(c[5])}
+                        for c in con.execute(f"PRAGMA table_xinfo('{nome}')") if c[6] in (0, 2, 3)]
+                fks = [{"coluna": f[3], "tabela": f[2], "ref": f[4]} for f in con.execute(f"PRAGMA foreign_key_list('{nome}')")]
+                n = con.execute(f'SELECT COUNT(*) FROM "{nome}"').fetchone()[0]
+                out.append({"nome": nome, "tipo": tipo, "colunas": cols, "fks": fks, "linhas": n})
+            return out
+        finally:
+            con.close()
+
+    def consultar(self, sql: str, limite: int = 500) -> pd.DataFrame:
+        """SELECT livre, só leitura: qualquer escrita é recusada pelo próprio SQLite."""
+        if not sql.strip().lower().startswith(("select", "with")):
+            raise RecusadoPeloBanco("Aqui só vale consulta (SELECT ou WITH).")
+        con = self._con_leitura()
+        try:
+            return pd.read_sql(f"SELECT * FROM ({sql.strip().rstrip(';')}) LIMIT {int(limite)}", con)
+        except Exception as e:
+            raise RecusadoPeloBanco(f"Consulta inválida: {e}") from e
+        finally:
+            con.close()
+
+    def origem_dos_dados(self) -> pd.DataFrame:
+        return self._df("""SELECT 'leitura_km' AS tabela, origem, COUNT(*) AS linhas FROM leitura_km GROUP BY origem
+                           UNION ALL
+                           SELECT 'ocorrencia', origem, COUNT(*) FROM ocorrencia GROUP BY origem""")
 
     # ───────── consultas (lado de leitura) ─────────
     def veiculos(self) -> pd.DataFrame:

@@ -8,9 +8,10 @@ import pandas as pd
 import streamlit as st
 
 from validacao.adaptadores.sqlite.base_operacional import SqliteBase
-from validacao.aplicacao.operacao import (AbrirOcorrencia, AtualizarStatusFrota, FecharOcorrencia,
+from validacao.aplicacao.operacao import (PlanejarTeste, AbrirOcorrencia, AtualizarStatusFrota, FecharOcorrencia,
                                           LancarLeituraKm, RegistrarTesteRealizado, Resposta)
 from validacao.aplicacao.portas import RecusadoPeloBanco
+from validacao.dominio.catalogos import TIPOS_TESTE
 from validacao.dominio.modelos import Config
 
 LARGO = "stretch"
@@ -57,7 +58,7 @@ def lancar(base: SqliteBase, cfg: Config) -> None:
     eu = usuario(base)
     veic = base.veiculos()["codigo"].tolist()
     ref = base.data_referencia()
-    t_km, t_oc, t_fr, t_te = st.tabs(["🛣️ Quilometragem", "⚠️ Ocorrência", "🚚 Status da frota", "✅ Teste realizado"])
+    t_km, t_oc, t_fr, t_te = st.tabs(["🛣️ Quilometragem", "⚠️ Ocorrência", "🚚 Status da frota", "🧪 Testes"])
 
     with t_km:
         with st.form("f_km", clear_on_submit=False):
@@ -106,13 +107,25 @@ def lancar(base: SqliteBase, cfg: Config) -> None:
         mostrar("fr")
 
     with t_te:
-        tp = base.testes_pendentes()
-        with st.form("f_te"):
+        a, b = st.columns(2)
+        with a, st.form("f_te_novo"):
+            st.subheader("Planejar")
+            v = st.selectbox("Veículo", veic, key="te_v")
+            tipo = st.selectbox("Tipo de teste (catálogo)", TIPOS_TESTE, index=None, placeholder="escolha…")
+            prev = st.date_input("Previsto para", ref, format="DD/MM/YYYY", key="te_p")
+            if st.form_submit_button("Planejar teste", type="primary") and tipo:
+                caso = PlanejarTeste(base)
+                acao = lambda conf, v=v, tipo=tipo, prev=prev: caso.executar(v, tipo, prev, eu, confirmado=conf)
+                registrar("te", acao(False), acao)
+        with b, st.form("f_te"):
+            st.subheader("Registrar conclusão")
+            tp = base.testes_pendentes()
             ops = [f"{r.teste_id} · {r.veiculo} · {r.tipo} · {r.status}" for r in tp.itertuples()]
             esc = st.selectbox("Teste", ops)
             d = st.date_input("Realizado em", ref, format="DD/MM/YYYY", key="te_d")
-            if st.form_submit_button("Registrar conclusão", type="primary") and esc:
+            if st.form_submit_button("Registrar conclusão") and esc:
                 registrar("te", RegistrarTesteRealizado(base).executar(esc.split(" · ")[0], d))
+        st.caption("O status do teste não é digitado: Planejado, Atrasado ou Concluído saem das datas.")
         mostrar("te")
 
     st.subheader("Últimos lançamentos pela plataforma")

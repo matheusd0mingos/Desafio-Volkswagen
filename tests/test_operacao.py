@@ -125,3 +125,15 @@ def test_duas_leituras_no_mesmo_dia_dono_escolhe(base):
     assert not r.aceito and "seguinte" in r.mensagem                       # passaria da leitura de 23/03
     assert caso.executar("PT-01", date(2026, 3, 16), 13700, "Ana Lima").aceito
     assert base.leitura_do_dia("PT-01", date(2026, 3, 16))[0] == 13700
+
+
+def test_planejar_teste_gera_id_e_avisa_repetido(base):
+    from validacao.aplicacao.operacao import PlanejarTeste
+    caso = PlanejarTeste(base)
+    assert not caso.executar("PT-01", "Teste inventado", date(2026, 4, 6), "Ana Lima").aceito   # fora do catálogo
+    r = caso.executar("PT-01", "Frenagem", date(2026, 4, 6), "Ana Lima")
+    assert r.pede_confirmacao and "T-003" in r.mensagem                     # já existe Frenagem em aberto
+    r = caso.executar("PT-01", "Frenagem", date(2026, 4, 6), "Ana Lima", confirmado=True)
+    assert r.aceito and "T-004" in r.mensagem
+    assert caso.executar("PT-01", "ACC", date(2026, 4, 13), "Ana Lima").aceito
+    assert {t for t, _ in base.testes_em_aberto("PT-01")} == {"T-003", "T-004", "T-005"}

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Sequence
 
+from ..dominio.catalogos import TIPOS_TESTE
 from ..dominio.modelos import Config, LeituraKm, Ocorrencia
 from ..dominio.regras import REGRAS_LEITURA_PADRAO, MesmaDataRule, RegraLeitura, SaltoRule
 from ..dominio.servicos import Similaridade
@@ -132,6 +133,32 @@ class AtualizarStatusFrota:
         except RecusadoPeloBanco as e:
             return Resposta(False, str(e))
         return Resposta(True, f"{codigo}: {status} desde {data:%d/%m/%Y}.")
+
+
+class PlanejarTeste:
+    """Novo teste no plano: tipo do catálogo, veículo da frota, ID gerado. Avisa se o mesmo
+    tipo de teste já está em aberto no veículo."""
+
+    def __init__(self, base: BaseOperacional, catalogo: Sequence[str] = TIPOS_TESTE) -> None:
+        self._base, self._catalogo = base, catalogo
+
+    def executar(self, codigo: str, tipo: str, prevista: date, engenheiro: str,
+                 confirmado: bool = False) -> Resposta:
+        if not self._base.existe_veiculo(codigo):
+            return Resposta(False, f"{codigo} não está no cadastro da frota.")
+        if tipo not in self._catalogo:
+            return Resposta(False, f"“{tipo}” não está no catálogo de testes.")
+        if not confirmado:
+            iguais = [tid for tid, t in self._base.testes_em_aberto(codigo) if t == tipo]
+            if iguais:
+                return Resposta(False, f"{codigo} já tem {tipo} em aberto ({', '.join(iguais)}). "
+                                       "Se for uma nova rodada, confirme.", pede_confirmacao=True)
+        tid = self._base.proximo_id_teste()
+        try:
+            self._base.inserir_teste(tid, codigo, tipo, prevista, engenheiro)
+        except RecusadoPeloBanco as e:
+            return Resposta(False, str(e))
+        return Resposta(True, f"{tid} planejado: {tipo} no {codigo}, previsto para {prevista:%d/%m/%Y}.")
 
 
 class RegistrarTesteRealizado:

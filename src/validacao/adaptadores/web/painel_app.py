@@ -13,7 +13,7 @@ import streamlit as st
 from validacao.adaptadores.sqlite.repositorio import conectar, schema_sql
 from validacao.adaptadores.sqlite.base_operacional import SqliteBase
 from validacao.adaptadores.sqlite.bootstrap import garantir_base
-from validacao.adaptadores.web import gate_ui, plataforma
+from validacao.adaptadores.web import banco_ui, gate_ui, plataforma
 from validacao.adaptadores.web.dados import tratar
 from validacao.dominio.modelos import Config, LeituraKm, Origem
 from validacao.dominio.normalizadores import DataNormalizador, VeiculoIDNormalizador
@@ -22,7 +22,7 @@ from validacao.dominio.regras import REGRAS_LEITURA_PADRAO
 st.set_page_config(page_title="Case Validation & AI", page_icon="🚚", layout="wide")
 
 PAGINAS = ["👤 About me", "👤 Why this role", "Início", "1.1 Diagnóstico", "1.2 Modelo de dados", "1.3 Padrões e regras", "1.4 Tratamento",
-           "2.1 Fluxo do Gate", "2.1 Impacto no Gate Review", "▶ Lançar dados", "▶ Minhas pendências", "▶ Gate ao vivo", "▶ Pacote do Gate", "2.2 Plano de 90 dias", "2.3 Indicadores", "2.4 Adesão",
+           "2.1 Fluxo do Gate", "2.1 Impacto no Gate Review", "▶ Lançar dados", "▶ Minhas pendências", "▶ Gate ao vivo", "▶ Pacote do Gate", "▶ Base de dados", "2.2 Plano de 90 dias", "2.3 Indicadores", "2.4 Adesão",
            "2.5 Inteligência artificial", "Premissas e riscos"]
 LARGO = "stretch"
 
@@ -232,6 +232,7 @@ def modelo():
                "a se vincular ao teste. Os relatórios em PDF recebem padrão de nome com o T-NNN e um link.")
     with st.expander("🗄️ O mesmo modelo em SQL (DDL)"):
         st.code(schema_sql(), language="sql")
+    st.button("Ver o banco por dentro, ao vivo →", on_click=lambda: st.session_state.update(pagina="▶ Base de dados"))
     st.subheader("O modelo já populado com os dados tratados")
     t = st.segmented_control("Tabela", list(D["tratado"].keys())[1:], default="Veiculo")
     if t:
@@ -590,6 +591,9 @@ NOTAS = {
                                   "A reunião deixa de discutir número e passa a discutir risco.",
     "▶ Pacote do Gate": "≈ 40 s. Escolha o programa Alfa: o pacote mostra se ele está pronto, o que impede, e "
                         "baixa o material da reunião em um clique. É o que hoje leva três dias.",
+    "▶ Base de dados": "Na arguição. Mostre o diagrama lido do próprio banco (o veículo no centro), a tabela que "
+                       "veio do Excel × o que entrou pela plataforma, e rode um SELECT ao vivo. Se pedirem, tente um "
+                       "DELETE: a conexão só leitura recusa.",
     "▶ Lançar dados": "Demo ≈ 60 s. Como Ana Lima: PT-01, 13.000 km → barrado (regrediu). Corrija para 14.300 → "
                       "entra. Vá ao Gate ao vivo.",
     "▶ Minhas pendências": "Na arguição. Como Patrícia Rocha: aceitar a sugestão do PT-04 com um clique.",
@@ -622,6 +626,7 @@ def reiniciar():
      pct, D["km_em_dia"], D["frota"]),
  "▶ Gate ao vivo": lambda: plataforma.gate_ao_vivo(BASE, dias, reiniciar),
  "▶ Pacote do Gate": lambda: gate_ui.pacote(BASE, dias),
+ "▶ Base de dados": lambda: banco_ui.pagina(BASE),
  "2.2 Plano de 90 dias": plano, "2.3 Indicadores": indicadores, "2.4 Adesão": adesao,
  "2.5 Inteligência artificial": ia, "Premissas e riscos": riscos}[st.session_state["pagina"]]()
 if NOTAS_ON and st.session_state["pagina"] in NOTAS:

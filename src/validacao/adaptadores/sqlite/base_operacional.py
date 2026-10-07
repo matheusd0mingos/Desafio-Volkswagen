@@ -198,6 +198,15 @@ class SqliteBase:
         return self._df("""SELECT t.teste_id, v.codigo AS veiculo, t.tipo, t.prevista, t.status, t.engenheiro
                            FROM vw_teste t JOIN veiculo v USING (chassi) WHERE t.realizada IS NULL ORDER BY t.prevista""")
 
+    def status_frota_atual(self) -> pd.DataFrame:
+        """Último status de cada veículo (veículo sem status aceito aparece como 'Sem status')."""
+        return self._df("""SELECT v.codigo AS veiculo, v.programa_id AS programa,
+                                  COALESCE(s.status, 'Sem status') AS status, s.motivo, s.previsao_retorno, s.data AS desde
+                           FROM veiculo v
+                           LEFT JOIN status_frota s ON s.chassi = v.chassi
+                                AND s.data = (SELECT MAX(data) FROM status_frota WHERE chassi = v.chassi)
+                           ORDER BY v.codigo""")
+
     def gate(self) -> pd.DataFrame:
         return self._df("SELECT * FROM vw_gate_programa")
 

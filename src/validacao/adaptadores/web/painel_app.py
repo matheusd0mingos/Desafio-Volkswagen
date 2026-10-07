@@ -13,7 +13,7 @@ import streamlit as st
 from validacao.adaptadores.sqlite.repositorio import conectar, schema_sql
 from validacao.adaptadores.sqlite.base_operacional import SqliteBase
 from validacao.adaptadores.sqlite.bootstrap import garantir_base
-from validacao.adaptadores.web import plataforma
+from validacao.adaptadores.web import gate_ui, plataforma
 from validacao.adaptadores.web.dados import tratar
 from validacao.dominio.modelos import Config, LeituraKm, Origem
 from validacao.dominio.normalizadores import DataNormalizador, VeiculoIDNormalizador
@@ -22,7 +22,7 @@ from validacao.dominio.regras import REGRAS_LEITURA_PADRAO
 st.set_page_config(page_title="Case Validation & AI", page_icon="🚚", layout="wide")
 
 PAGINAS = ["👤 About me", "👤 Why this role", "Início", "1.1 Diagnóstico", "1.2 Modelo de dados", "1.3 Padrões e regras", "1.4 Tratamento",
-           "2.1 Fluxo do Gate", "▶ Lançar dados", "▶ Minhas pendências", "▶ Gate ao vivo", "2.2 Plano de 90 dias", "2.3 Indicadores", "2.4 Adesão",
+           "2.1 Fluxo do Gate", "2.1 Impacto no Gate Review", "▶ Lançar dados", "▶ Minhas pendências", "▶ Gate ao vivo", "▶ Pacote do Gate", "2.2 Plano de 90 dias", "2.3 Indicadores", "2.4 Adesão",
            "2.5 Inteligência artificial", "Premissas e riscos"]
 LARGO = "stretch"
 
@@ -584,6 +584,12 @@ NOTAS = {
                       "PT-04 rodou 20.890; a Patrícia sabe. O Excel entra uma vez; o que foi barrado vira pendência.",
     "2.1 Fluxo do Gate": "≈ 40 s. O maior desperdício é a reunião discutindo número. O fluxo desejado é esta "
                          "plataforma: para ir a produção muda só onde roda, o banco e o login. Clique em 'Ver o fluxo funcionando'.",
+    "2.1 Impacto no Gate Review": "≈ 1 min. Esta é a segunda pergunta do gestor. Hoje o Gate é preparado juntando "
+                                  "planilhas; com a base única, a preparação deixa de ser consolidação e vira "
+                                  "verificação: o programa só vai ao Gate se cumprir o critério de prontidão. "
+                                  "A reunião deixa de discutir número e passa a discutir risco.",
+    "▶ Pacote do Gate": "≈ 40 s. Escolha o programa Alfa: o pacote mostra se ele está pronto, o que impede, e "
+                        "baixa o material da reunião em um clique. É o que hoje leva três dias.",
     "▶ Lançar dados": "Demo ≈ 60 s. Como Ana Lima: PT-01, 13.000 km → barrado (regrediu). Corrija para 14.300 → "
                       "entra. Vá ao Gate ao vivo.",
     "▶ Minhas pendências": "Na arguição. Como Patrícia Rocha: aceitar a sugestão do PT-04 com um clique.",
@@ -611,7 +617,11 @@ def reiniciar():
  "1.3 Padrões e regras": padroes, "1.4 Tratamento": tratamento, "2.1 Fluxo do Gate": fluxo,
  "▶ Lançar dados": lambda: plataforma.lancar(BASE, CFG),
  "▶ Minhas pendências": lambda: plataforma.pendencias(BASE, CFG),
+ "2.1 Impacto no Gate Review": lambda: gate_ui.impacto(
+     (len(res.falhas_abertas_antes) + 1, min(res.falhas_abertas_antes.values()), max(res.falhas_abertas_antes.values())),
+     pct, D["km_em_dia"], D["frota"]),
  "▶ Gate ao vivo": lambda: plataforma.gate_ao_vivo(BASE, dias, reiniciar),
+ "▶ Pacote do Gate": lambda: gate_ui.pacote(BASE, dias),
  "2.2 Plano de 90 dias": plano, "2.3 Indicadores": indicadores, "2.4 Adesão": adesao,
  "2.5 Inteligência artificial": ia, "Premissas e riscos": riscos}[st.session_state["pagina"]]()
 if NOTAS_ON and st.session_state["pagina"] in NOTAS:

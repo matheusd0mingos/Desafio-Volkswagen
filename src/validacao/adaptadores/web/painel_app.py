@@ -155,7 +155,8 @@ def por_que_vaga():
         if mapa.is_file():
             st.image(str(mapa), caption="Army sites in the Eastern Amazon (Pará, Amapá, Maranhão): "
                                         "scope of the free-market migration", width="stretch")
-
+    st.info("**I have been the engineer on the receiving end of messy spreadsheets. "
+            "I want to be the one who turns validation data into faster engineering decisions.**")
 
 
 # ───────────────────────── páginas ─────────────────────────
@@ -184,7 +185,7 @@ def inicio():
 
 
 def diagnostico():
-    st.header("1.1 Diagnóstico: o erro nasce no processo, não na pessoa")
+    st.header("1.1 Diagnóstico: a maior parte dos erros tem origem no processo")
     base = ach[ach["Tipo"] != "Oportunidade"]
     tab = (base.groupby(["Categoria", "Impacto no Gate", "Tipo"])
            .agg(Onde=("Aba", lambda s: ", ".join(sorted(set(s)))), Registros=("Regra", "size"))
@@ -223,12 +224,12 @@ def modelo():
     a, b = st.columns(2)
     with a:
         cartao("Chave do veículo: o chassi",
-               "É físico e não muda. O código PT-NN continua existindo, porque é como o engenheiro fala, "
-               "mas vira código de exibição escolhido em lista, nunca digitado.")
+               "Identificador físico e imutável. O código PT-NN é mantido como código de exibição, "
+               "selecionado em lista e nunca digitado.")
     with b:
-        cartao("Simples de propósito",
-               "Programa sai das outras tabelas e fica só no veículo (hoje está repetido). Ocorrência ganha o "
-               "vínculo com o teste. Relatório PDF não entra na base agora: só ganha padrão de nome com o T-NNN e um link.")
+        cartao("Modelo enxuto",
+               "O programa fica apenas no cadastro do veículo (hoje está repetido em duas abas). A ocorrência passa "
+               "a se vincular ao teste. Os relatórios em PDF recebem padrão de nome com o T-NNN e um link.")
     with st.expander("🗄️ O mesmo modelo em SQL (DDL)"):
         st.code(schema_sql(), language="sql")
     st.subheader("O modelo já populado com os dados tratados")
@@ -277,7 +278,7 @@ def padroes():
             r = DataNormalizador().normalizar(d, o, "Data")
             st.write(f"→ **{r.valor:%Y-%m-%d}**", "· ⚠️ " + r.achados[0].regra if r.achados else "· ✅")
         except (ValueError, TypeError):
-            st.write("🚫 Data inválida: o campo de data nem deixaria salvar")
+            st.write("🚫 Data inválida: o campo de data não permite salvar")
     with c3, st.container(border=True):
         ant = st.number_input("Km da última leitura", value=20870.0, step=10.0)
         atu = st.number_input("Km digitado agora", value=208900.0, step=10.0)
@@ -414,7 +415,7 @@ def fluxo():
     x.info("**1 · Carga inicial**  \nO Excel é tratado e vira a base única")
     y.info("**2 · Lançamento**  \nO engenheiro lança; domínio e banco validam na hora")
     z.success("**3 · Gate ao vivo**  \nO número muda no instante do lançamento")
-    st.subheader("Do protótipo à produção: mesma plataforma, outra casa")
+    st.subheader("Do protótipo à produção: o que muda")
     st.dataframe(pd.DataFrame([
         ("Lançamento validado", "Formulário desta plataforma", "Nada: mesma tela, com login corporativo"),
         ("Status da frota (logística)", "Tela de status da frota", "Nada (Power Automate só se a logística insistir no e-mail)"),
@@ -423,7 +424,7 @@ def fluxo():
         ("Gate + qualidade", "Gate ao vivo", "Nada (Power BI opcional, lendo o mesmo banco)"),
         ("Onde roda", "Docker no meu notebook", "Container no ambiente Python corporativo"),
     ], columns=["Parte", "Hoje (protótipo)", "Em produção, o que muda"]), hide_index=True, width=LARGO)
-    st.caption("Muda só onde roda, o banco e o login. Premissa a confirmar com a TI: existe hospedagem Python corporativa "
+    st.caption("Mudam apenas a hospedagem, o banco de dados e a autenticação. Premissa a confirmar com a TI: existe hospedagem Python corporativa "
                "(Python/SQL estão na lista de homologadas). Plano B, se não existir: as mesmas regras, com entrada em "
                "Power Apps e painel em Power BI.")
     st.button("Ver o fluxo funcionando →", on_click=lambda: st.session_state.update(pagina="▶ Lançar dados"))
@@ -444,14 +445,16 @@ def plano():
             st.markdown("\n".join(f"- {i}" for i in itens))
     a, b = st.columns(2)
     with a:
-        cartao("Por que nessa ordem",
-               "Painel bonito com dado ruim só acelera a briga. Os 30 primeiros dias já entregam algo: a lista do "
-               "que está errado, por dono. Sou uma pessoa só: um programa funcionando de verdade vale mais que três pela metade. "
-               "O protótipo desta apresentação adianta o caminho: as regras já estão escritas e testadas.")
+        with st.container(border=True):
+            st.markdown("**Critérios da sequência**")
+            st.markdown("1. **Qualidade antes da visualização:** um painel sobre dados inconsistentes reproduz a divergência atual.\n"
+                        "2. **Entrega desde o primeiro mês:** em 30 dias, cada responsável recebe a lista de inconsistências dos seus dados.\n"
+                        "3. **Escopo compatível com uma pessoa:** um programa piloto completo antes de escalar para os três.")
+            st.caption("As regras de validação já estão implementadas e testadas neste protótipo, o que reduz o risco das etapas seguintes.")
     with b:
-        cartao("Fica de fora (por enquanto)",
-               "Conteúdo dos PDFs (só padrão de nome e link), IA, integração com sistemas corporativos, app mobile. "
-               "Não é que não importe: depende de a base estar confiável primeiro.")
+        cartao("Fora do escopo dos 90 dias",
+               "Conteúdo dos relatórios em PDF (apenas padrão de nome e link), IA, integração com sistemas corporativos "
+               "e aplicativo mobile. Esses itens dependem de uma base confiável e entram na etapa seguinte.")
 
 
 def indicadores():
@@ -473,25 +476,28 @@ def indicadores():
 
 
 def adesao():
-    st.header("2.4 Adesão: tirar o retrabalho do engenheiro, não o controle")
+    st.header("2.4 Adesão: reduzir o retrabalho, preservando a autonomia do engenheiro")
     c = st.columns(2)
     for i, (t, x) in enumerate([
-        ("O dono continua dono", "Cada registro tem o nome do engenheiro. Ninguém corrige o dado dele sem ele."),
-        ("Transição sem perder nada", "A planilha dele entra na carga inicial, com o nome dele em cada linha. "
-                                     "Ele larga a planilha quando confiar na plataforma, não por decreto."),
-        ("Um campeão no piloto", "Desenho a entrada junto com um engenheiro. Ele mostra o resultado aos colegas."),
-        ("Regra clara do gestor", "No Gate vale o painel. O painel de qualidade é feedback, não ranking.")]):
+        ("Responsabilidade preservada", "Cada registro identifica o engenheiro responsável. "
+                                       "Nenhuma correção é feita sem a confirmação dele."),
+        ("Transição gradual", "A planilha atual entra na carga inicial, com o responsável identificado em cada linha. "
+                              "A migração para a plataforma acontece à medida que ela se mostra confiável."),
+        ("Engenheiro de referência no piloto", "A tela de lançamento é desenhada com um engenheiro do programa piloto, "
+                                               "que apresenta o resultado aos colegas."),
+        ("Diretriz da gestão", "No Gate Review, a referência é o painel. O painel de qualidade é retorno individual, "
+                               "não comparação entre pessoas.")]):
         with c[i % 2]:
             cartao(t, x)
-    st.subheader("O que cada engenheiro recebe: a lista dele, não um ranking")
+    st.subheader("Cada responsável recebe a própria lista de pendências")
     pend = BASE.pendencias()
     resumo = pend.groupby("responsavel").size().rename("pendências").reset_index()
     a, b = st.columns([1, 2])
-    a.dataframe(resumo.rename(columns={"responsavel": "Dono"}), hide_index=True, width=LARGO)
+    a.dataframe(resumo.rename(columns={"responsavel": "Responsável"}), hide_index=True, width=LARGO)
     with b:
-        cartao("Por que isso gera adesão",
-               "Cada um vê só o que é dele, com a sugestão pronta: aceitar leva um clique. "
-               "Corrigir o próprio dado vira uma tarefa de minutos, não uma reunião de cobrança.")
+        cartao("Por que isso favorece a adesão",
+               "Cada responsável vê apenas os seus itens, com sugestão de correção. "
+               "A resolução leva minutos e não depende de reuniões de acompanhamento.")
         st.button("Abrir as pendências de um engenheiro →",
                   on_click=lambda: st.session_state.update(pagina="▶ Minhas pendências"))
 

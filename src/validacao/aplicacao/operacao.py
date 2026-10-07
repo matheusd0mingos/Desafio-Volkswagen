@@ -7,7 +7,7 @@ from datetime import date
 from typing import Sequence
 
 from ..dominio.modelos import Config, LeituraKm, Ocorrencia
-from ..dominio.regras import REGRAS_LEITURA_PADRAO, RegraLeitura, SaltoRule
+from ..dominio.regras import REGRAS_LEITURA_PADRAO, MesmaDataRule, RegraLeitura, SaltoRule
 from ..dominio.servicos import Similaridade
 from .portas import BaseOperacional, RecusadoPeloBanco
 
@@ -48,6 +48,36 @@ class LancarLeituraKm:
         if pendencia_id is not None:
             self._base.resolver_pendencia(pendencia_id)
         return Resposta(True, f"Leitura de {codigo} registrada: {km:,.0f} km em {data:%d/%m/%Y}.".replace(",", "."))
+
+
+class SubstituirLeituraKm:
+    """Duas leituras no mesmo dia: o dono escolhe a certa. A escolhida ainda precisa
+    caber entre a leitura anterior e a seguinte."""
+
+    def __init__(self, base: BaseOperacional, config: Config = Config(),
+                 regras: Sequence[RegraLeitura] = REGRAS_LEITURA_PADRAO) -> None:
+        self._base, self._cfg = base, config
+        self._regras = [r for r in regras if not isinstance(r, MesmaDataRule)]
+
+    def executar(self, codigo: str, data: date, km: float, responsavel: str,
+                 pendencia_id: int | None = None) -> Resposta:
+        nova = LeituraKm(codigo, data, data, km, responsavel, None, 0)
+        antes = self._base.leitura_vizinha(codigo, data, depois=False)
+        depois = self._base.leitura_vizinha(codigo, data, depois=True)
+        if antes is not None:
+            v = next((v for r in self._regras if (v := r.avaliar(nova, antes, self._cfg))), None)
+            if v:
+                return Resposta(False, f"{v.regra}. {v.acao}")
+        if depois is not None and depois.km < km:
+            return Resposta(False, f"Fica maior que a leitura seguinte ({depois.km:,.0f} km em "
+                                   f"{depois.data:%d/%m}).".replace(",", "."))
+        try:
+            self._base.substituir_leitura(nova)
+        except RecusadoPeloBanco as e:
+            return Resposta(False, str(e))
+        if pendencia_id is not None:
+            self._base.resolver_pendencia(pendencia_id)
+        return Resposta(True, f"{codigo} em {data:%d/%m/%Y} agora vale {km:,.0f} km.".replace(",", "."))
 
 
 class AbrirOcorrencia:

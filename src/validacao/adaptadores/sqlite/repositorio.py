@@ -10,6 +10,9 @@ from ...aplicacao.portas import ResultadoTratamento
 from ...dominio.modelos import Qualidade
 
 
+VERSAO_BASE = "4"   # suba quando o esquema ou a carga mudarem: bases antigas são refeitas
+
+
 def schema_sql() -> str:
     return resources.files(__package__).joinpath("schema.sql").read_text(encoding="utf-8")
 
@@ -50,6 +53,7 @@ class SqliteRepositorio:
 
     def _carregar(self, con: sqlite3.Connection, r: ResultadoTratamento) -> None:
         inserir(con, "parametro", {"nome": "data_corte", "valor": r.resumo.corte.isoformat()})
+        inserir(con, "parametro", {"nome": "versao_base", "valor": VERSAO_BASE})
         for prog, tipo in sorted({(v.programa, v.tipo) for v in r.veiculos}):
             inserir(con, "programa", {"programa_id": prog, "tipo_veiculo": tipo})
 

@@ -133,7 +133,7 @@ def pendencias(base: SqliteBase, cfg: Config) -> None:
         st.success(ok)
     p = base.pendencias(eu)
     if p.empty:
-        st.success("Nada pendente. 🎉")
+        st.success("Nenhuma pendência em aberto.")
         return
     tipos = p["tabela"].map({"leitura_km": "quilometragem", "status_frota": "status da frota",
                              "ocorrencia": "ocorrência", "teste": "teste"}).value_counts()

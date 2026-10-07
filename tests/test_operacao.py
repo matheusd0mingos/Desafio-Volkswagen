@@ -115,3 +115,13 @@ def test_dono_corrige_status_e_reenvia(tmp_path):
         base.reenviar_pendencia(int(oc["id"]), dados)                 # continua inválido
     base.reenviar_pendencia(int(oc["id"]), dict(dados, status="Em análise"))
     assert base.gate()["falhas_abertas"].sum() == antes + 1           # 10 → 11: o "?" virou falha confirmada
+
+
+def test_duas_leituras_no_mesmo_dia_dono_escolhe(base):
+    from validacao.aplicacao.operacao import SubstituirLeituraKm
+    assert LancarLeituraKm(base).executar("PT-01", date(2026, 3, 23), 14300, "Ana Lima").aceito
+    caso = SubstituirLeituraKm(base)
+    r = caso.executar("PT-01", date(2026, 3, 16), 15000, "Ana Lima")
+    assert not r.aceito and "seguinte" in r.mensagem                       # passaria da leitura de 23/03
+    assert caso.executar("PT-01", date(2026, 3, 16), 13700, "Ana Lima").aceito
+    assert base.leitura_do_dia("PT-01", date(2026, 3, 16))[0] == 13700

@@ -9,7 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from validacao.adaptadores.sqlite.base_operacional import SqliteBase
-from validacao.aplicacao.operacao import AtualizarStatusFrota, LancarLeituraKm, Resposta
+from validacao.aplicacao.operacao import AtualizarStatusFrota, LancarLeituraKm, Resposta, SubstituirLeituraKm
 from validacao.aplicacao.portas import RecusadoPeloBanco
 from validacao.dominio.modelos import Config
 
@@ -66,7 +66,7 @@ def _km(base, cfg, eu, p, d):
     elif regra.startswith("Km vazio"):
         titulo = "leitura sem km"
     elif regra.startswith("Duas leituras"):
-        titulo = f"duas leituras em {dmy(d['data'])}; esta diz {km_br(digitado)} km"
+        titulo = "duas leituras no mesmo dia: qual é a certa?"
     elif regra.startswith("Veículo não existe"):
         titulo = "leitura de um veículo que não está na frota"
     else:
@@ -80,10 +80,15 @@ def _km(base, cfg, eu, p, d):
         _descartar(base, pid)
         return
     if regra.startswith("Duas leituras"):
-        st.write("A outra leitura do mesmo dia já está na base. Se esta for a correta, informe-a numa data própria; "
-                 "senão, descarte.")
-    c1, c2 = st.columns(2)
-    if pd.notna(p.valor_sugerido):
+        _mesmo_dia(base, cfg, eu, p, d, data, veic, pid)
+        return
+    if regra.startswith("Km vazio"):
+        st.write("A linha foi lançada sem o km. Informe o valor do hodômetro naquele dia, ou descarte se não houve leitura.")
+    elif regra.startswith("Km regrediu"):
+        st.write("O km não pode diminuir. Confira o hodômetro: provavelmente um dígito trocado.")
+    tem_sugestao = pd.notna(p.valor_sugerido)
+    c1, c2 = st.columns(2) if tem_sugestao else (None, st.columns([1, 1])[0])
+    if tem_sugestao:
         with c1, st.container(border=True):
             st.write(f"Sugestão: **{km_br(p.valor_sugerido)} km**")
             if st.button("✅ Usar a sugestão", key=f"sug_{pid}", type="primary"):
@@ -94,6 +99,29 @@ def _km(base, cfg, eu, p, d):
         if st.button("Enviar", key=f"env_{pid}", disabled=val is None):
             _resolveu(LancarLeituraKm(base, cfg).executar(veic, data, val, eu, pendencia_id=pid))
     _descartar(base, pid)
+
+
+def _mesmo_dia(base, cfg, eu, p, d, data, veic, pid):
+    na_base = base.leitura_do_dia(veic, data)
+    antes = base.leitura_vizinha(veic, data, depois=False)
+    depois = base.leitura_vizinha(veic, data, depois=True)
+    st.write(f"O Excel tinha **duas leituras do {veic} no mesmo dia**. Uma entrou na base; esta ficou esperando. "
+             "Só o dono sabe qual é a do hodômetro.")
+    cols = st.columns(4)
+    if antes:
+        cols[0].metric(f"Antes · {antes.data:%d/%m}", km_br(antes.km))
+    if na_base:
+        cols[1].metric(f"Na base · {data:%d/%m}", km_br(na_base[0]))
+    cols[2].metric(f"Esta pendência · {data:%d/%m}", km_br(d["km"]))
+    if depois:
+        cols[3].metric(f"Depois · {depois.data:%d/%m}", km_br(depois.km))
+    st.caption("As duas cabem entre a leitura anterior e a seguinte, então a regra não consegue decidir sozinha.")
+    a, b = st.columns(2)
+    if na_base and a.button(f"✅ A da base está certa ({km_br(na_base[0])} km)", key=f"mant_{pid}", type="primary"):
+        base.resolver_pendencia(pid)
+        _ok(f"Mantida a leitura de {km_br(na_base[0])} km do {veic} em {data:%d/%m/%Y}.")
+    if b.button(f"Trocar para esta ({km_br(d['km'])} km)", key=f"troc_{pid}"):
+        _resolveu(SubstituirLeituraKm(base, cfg).executar(veic, data, float(d["km"]), eu, pendencia_id=pid))
 
 
 def _frota(base, cfg, eu, p, d):

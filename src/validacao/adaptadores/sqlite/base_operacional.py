@@ -88,6 +88,26 @@ class SqliteBase:
                         WHERE v.codigo = ? AND l.data <= ? ORDER BY l.data DESC LIMIT 1""", (codigo, ate.isoformat()))
         return LeituraKm(codigo, date.fromisoformat(r[0]), r[0], r[1], r[2], None, 0) if r else None
 
+    def leitura_vizinha(self, codigo, data, depois):
+        op, ordem = (">", "ASC") if depois else ("<", "DESC")
+        r = self._um(f"""SELECT l.data, l.km, l.responsavel FROM leitura_km l JOIN veiculo v USING (chassi)
+                         WHERE v.codigo = ? AND l.data {op} ? ORDER BY l.data {ordem} LIMIT 1""",
+                     (codigo, data.isoformat()))
+        return LeituraKm(codigo, date.fromisoformat(r[0]), r[0], r[1], r[2], None, 0) if r else None
+
+    def substituir_leitura(self, l: LeituraKm):
+        n = self._executar("""UPDATE leitura_km SET km = ?, responsavel = ?, origem = 'plataforma',
+                                     lancado_em = datetime('now', 'localtime')
+                              WHERE data = ? AND chassi = (SELECT chassi FROM veiculo WHERE codigo = ?)""",
+                           (l.km, l.responsavel, l.data.isoformat(), l.veiculo))
+        if n == 0:
+            raise RecusadoPeloBanco(f"Não há leitura de {l.veiculo} em {l.data:%d/%m/%Y} para substituir.")
+
+    def leitura_do_dia(self, codigo: str, data: date):
+        r = self._um("""SELECT l.km, l.responsavel FROM leitura_km l JOIN veiculo v USING (chassi)
+                        WHERE v.codigo = ? AND l.data = ?""", (codigo, data.isoformat()))
+        return r
+
     def inserir_leitura(self, l: LeituraKm):
         self._inserir("leitura_km", {"chassi": self._chassi(l.veiculo), "data": l.data.isoformat(), "km": l.km,
                                      "responsavel": l.responsavel, "origem": "plataforma"})
